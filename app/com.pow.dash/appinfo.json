@@ -1,0 +1,3 @@
+{ "id":"com.pow.dash","version":"1.0.0","vendor":"PowStation","type":"web","main":"index.html",
+  "title":"PowDash","icon":"icon.png","largeIcon":"largeIcon.png","bgColor":"#080a0c",
+  "iconColor":"#00e5a0","handlesRelaunch":true,"disableBackHistoryAPI":true }

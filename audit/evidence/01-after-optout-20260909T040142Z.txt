@@ -1,0 +1,2 @@
+"livePlus":"off"
+"watchedListCollection":"off"

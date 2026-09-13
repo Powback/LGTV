@@ -1,0 +1,42 @@
+=== AS-FOUND BASELINE (read-only) @ 20260909T040041Z UTC ===
+### firmware / region / unit ###
+    "core_os_release": "4.4.3-22",
+    "core_os_release_codename": "goldilocks-gorongosa",
+    "webos_build_datetime": "20250429094508",
+    "webos_build_id": "22",
+    "webos_manufacturing_version": "05.50.70",
+    "webos_prerelease": "",
+    "webos_release": "4.4.3",
+    "webos_release_codename": "goldilocks-gorongosa"
+### DEMO / STORE MODE flags ###
+"demoMode":"on"
+"storeHDR":"on"
+"storeLogo":"0"
+"storeMode":"home"
+"storeModeVideo":"off"
+--- store-related preference files (mtimes = when set) ---
+### ACR / LivePlus consent (on-disk) ###
+-- option livePlus/ads/voice --
+"livePlus":"on"
+"speakToTv":"off"
+"turnOnByVoice":"off"
+"watchedListCollection":"on"
+-- eula flags --
+"acrAdAllowed":true
+"acrAllowed":false
+"acrGdprAllowed":true
+"acrOnAllowed":true
+"customAdAllowed":true
+"thirdPartySharingAllowed":true
+"voiceAllowed":true
+-- ACR data dir --
+optin:
+
+eula_allowed:
+allowed
+### persistent identifiers (personal-data hooks) ###
+IFA:
+633048c7-412e-015e-68df-857a8675a490
+SSDP uuid:
+765a6f7e-fb08-41b7-843a-122cb1cb077d
+

@@ -1,0 +1,65 @@
+#!/bin/bash
+# LG TV transparent MITM capture — easy on/off. Disk-safe: only tracker/telemetry/voice
+# hosts are decrypted & saved; everything else (Netflix/YouTube video) passes through
+# untouched so those apps keep working and the disk doesn't fill.
+set -uo pipefail
+LAN_IF=en0; TV_IP=192.168.50.143; MAC_IP=192.168.50.99; ROUTER=192.168.50.1
+MITM_PORT=8080
+DIR="$HOME/Projects/LGTV/capture"; FLOWS="$DIR/flows"; LOG="$DIR/mitm.log"
+PIDFILE="$DIR/mitmdump.pid"; CONF="$HOME/.mitmproxy"; MITM="$HOME/.local/bin/mitmdump"
+# hosts we DECRYPT & SAVE (regex). Everything else is passed through, not saved.
+# lgthinq (voice) is intercepted but STREAMED by the addon (tee, no buffering) so voice doesn't 6022.
+TARGETS='lgthinq|lgtvsdp|lgtvcommon|lgsmartad|alphonso|lgtviot|samba\.tv|lgappstv|lge\.com|doubleclick|a2z\.com|amazon\.com|amazonvideo|nielsen|conviva|segment|scorecardresearch'
+MAX_MB=3000  # disk guard: refuse to start past this in FLOWS
+
+msg(){ echo "[lgtv-capture] $*"; }
+
+status(){
+  echo "== TV route =="; ssh lgtv 'ip route | grep default' 2>/dev/null || echo "  (ssh?)"
+  echo "== Mac forwarding =="; sysctl -n net.inet.ip.forwarding
+  echo "== pf =="; sudo pfctl -s info 2>/dev/null | head -1
+  echo "== mitmdump =="; if [ -f "$PIDFILE" ] && sudo kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then echo "  RUNNING pid $(cat "$PIDFILE")"; else echo "  stopped"; fi
+  echo "== capture size =="; du -sh "$FLOWS" 2>/dev/null; ls -lh "$FLOWS" 2>/dev/null | tail -5
+  echo "== CA on TV (expect 2) =="; ssh lgtv 'mount | grep -c "ca-certificates.crt\|sdp-ca.pem"' 2>/dev/null
+}
+
+on(){
+  mkdir -p "$FLOWS"
+  local used; used=$(du -sm "$FLOWS" 2>/dev/null | cut -f1); used=${used:-0}
+  if [ "$used" -gt "$MAX_MB" ]; then msg "ABORT: capture dir ${used}MB > ${MAX_MB}MB. Archive/clear $FLOWS first."; exit 1; fi
+  # 1) CA trust on TV (idempotent)
+  ssh lgtv 'mount|grep -q "on /etc/ssl/certs/ca-certificates.crt " || mount --bind /var/lib/webosbrew/mitm/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt; mount|grep -q "on /usr/share/ca-certificates/sdp/sdp-ca.pem " || mount --bind /var/lib/webosbrew/mitm/sdp-ca.pem /usr/share/ca-certificates/sdp/sdp-ca.pem' 2>/dev/null || true
+  # 2) forwarding + pf
+  sudo sysctl -w net.inet.ip.forwarding=1 >/dev/null
+  sudo pfctl -f "$DIR/pf.conf" 2>/dev/null; sudo pfctl -e 2>/dev/null || true
+  # 3) mitmdump (root, for /dev/pf). Only intercept TARGETS; pass through the rest.
+  sudo pkill -f "$MITM" 2>/dev/null; sleep 1
+  sudo nohup "$MITM" --mode transparent --listen-host 127.0.0.1 --listen-port $MITM_PORT \
+    --showhost --ssl-insecure --set confdir="$CONF" --set stream_large_bodies=3m \
+    --allow-hosts "$TARGETS" -s "$DIR/capture_addon.py" \
+    -w "$FLOWS/$(date +%Y%m%d).flows" > "$LOG" 2>&1 &
+  echo $! | sudo tee "$PIDFILE" >/dev/null; sleep 4
+  # 4) TV default route -> Mac
+  ssh lgtv "ip route replace default via $MAC_IP dev eth0"
+  sleep 2
+  # 5) verify TV internet still works; auto-revert if not
+  if ssh lgtv 'curl -s -m 8 -o /dev/null -w "%{http_code}" https://www.google.com/generate_204 2>/dev/null' | grep -q 204; then
+    msg "ON — TV internet OK through Mac; decrypting targets"
+  else
+    msg "WARN: TV internet check failed after enabling — AUTO-REVERTING"; off; exit 1
+  fi
+}
+
+off(){
+  ssh lgtv "ip route replace default via $ROUTER dev eth0" 2>/dev/null || true
+  sudo pfctl -d 2>/dev/null || true
+  sudo sysctl -w net.inet.ip.forwarding=0 >/dev/null 2>&1 || true
+  [ -f "$PIDFILE" ] && sudo kill "$(cat "$PIDFILE")" 2>/dev/null; sudo pkill -f "$MITM" 2>/dev/null || true
+  sudo rm -f "$PIDFILE"
+  msg "OFF — TV routes direct via $ROUTER; capture stopped (files kept in $FLOWS)"
+}
+
+case "${1:-status}" in
+  on) on ;; off) off ;; status) status ;;
+  *) echo "usage: lgtv-capture {on|off|status}"; exit 1 ;;
+esac

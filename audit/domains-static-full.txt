@@ -1,0 +1,46 @@
+=== STATIC domain/URL inventory from live TV rootfs ===
+raw lines:     3754
+--- URLs ---
+http://%1/$1
+http://%s
+http://%s%s
+http://%s/
+http://%s/CAB/BOOT?n=%u&version=%u&vdis=%s&client=%s
+http://%s/CAB/certificate
+http://%s/test/%d
+http://%s/wpad.dat
+http://%s:%d%s
+http://%s:%d%s%s%s
+http://%s:%d/%s
+http://%ss
+http://,
+http://..../12343/12345
+http://.css
+http://.google.com
+http://.jpg
+http://0pointer.de/lennart/projects/libdaemon/
+http://0pointer.de/lennart/projects/nss-mdns/
+http://10.0.20.1
+http://10.1.2.3:3000/
+http://10.150.25.164:6080
+http://10.185.223.172:80
+http://10.186.118.71/ipstreaming/AV_S6.ts
+http://127.0.0.1
+http://127.0.0.1/index.html
+http://127.0.0.1:
+http://127.0.0.1:54321
+http://156.147.69.32:8080/CheckSWAutoUpdate.laf
+http://156.147.69.32:8080/CheckSWManualUpdate.laf
+http://156.147.69.32:8080/DownloadResult.laf
+http://156.147.69.32:8080/SWDownloadEndLog.laf
+http://156.147.69.32:8080/SWDownloadStartLog.laf
+http://165.244.62.249:6120
+http://165.244.62.249:6230
+http://165.244.62.249:6240
+http://192.168.0.69:2869/upnphost/udhisapi.dll?content=uuid:0bb31ab6-ae1f-46bd-97ea-edfa9821f788
+http://192.168.0.69:49156/virtual/icon/icon.jpg
+http://2x.io
+http://4k.com/wp-content/uploads/2014/06/4k-image-santiago.jpg
+... (3194 total URL lines)
+
+[exited with code 0]

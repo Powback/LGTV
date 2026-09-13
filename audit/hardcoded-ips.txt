@@ -1,0 +1,9 @@
+=== hardcoded LG/OTA IPs in firmware (these bypass DNS capture) ===
+http://156.147.69.32:8080/CheckSWAutoUpdate.laf
+http://156.147.69.32:8080/CheckSWManualUpdate.laf
+http://156.147.69.32:8080/DownloadResult.laf
+http://156.147.69.32:8080/SWDownloadEndLog.laf
+http://156.147.69.32:8080/SWDownloadStartLog.laf
+http://165.244.62.249:6120
+http://165.244.62.249:6230
+http://165.244.62.249:6240

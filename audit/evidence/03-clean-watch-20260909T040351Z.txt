@@ -1,0 +1,6 @@
+=== 6-MIN CLEAN WATCH (livePlus OFF, acr2 settled) — start marker epoch 1788926631 ===
+--- any Alphonso/Samba DNS from TV during window? ---
+(empty above = ZERO ACR contact in the 6 min after opt-out settled = opt-out works)
+--- for contrast: ALL LG telemetry the TV DID contact in the window (still-active trackers) ---
+he-eu-ai.lgthinq.com|6
+--- decrypted ACR flows in capture (if any) ---

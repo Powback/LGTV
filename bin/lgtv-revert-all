@@ -1,0 +1,30 @@
+#!/bin/bash
+# Undo ALL of the audit/capture changes and return the TV to normal networking.
+# Does NOT remove root-SSH access (that's your way in) — see docs/ACCESS.md to undo that.
+# Safe to run anytime. A TV reboot alone also reverts every RAM change below.
+set -uo pipefail
+MAC_BIN="$HOME/Projects/LGTV/bin"; ROUTER=192.168.50.1
+echo "[revert] stopping capture (route back to router, pf off, proxy stop)..."
+"$MAC_BIN/lgtv-capture" off 2>/dev/null || true
+
+echo "[revert] TV: removing CA bind-mounts, resolv.conf override, watcher; restoring DNS..."
+ssh lgtv '
+  umount /etc/ssl/certs/ca-certificates.crt 2>/dev/null || true
+  umount /usr/share/ca-certificates/sdp/sdp-ca.pem 2>/dev/null || true
+  umount /etc/resolv.conf 2>/dev/null || true
+  pkill -f nlp-watch.sh 2>/dev/null || true
+  # restore connman DNS to the router (persistent change #6)
+  if [ -f /var/lib/webosbrew/connman-settings.bak ]; then
+    cp /var/lib/webosbrew/connman-settings.bak /var/lib/connman/ethernet_a823fe5daf58_cable/settings
+    ( restart connman 2>/dev/null || systemctl restart connman 2>/dev/null ) &
+  fi
+  iptables -t nat -F OUTPUT 2>/dev/null || true
+  echo "  TV reverted. default route:"; sleep 3; ip route | grep default
+' 2>/dev/null || echo "  (ssh unavailable — reboot the TV to revert everything)"
+
+echo "[revert] Mac: forwarding off, pf disabled (belt-and-suspenders)..."
+sudo sysctl -w net.inet.ip.forwarding=0 >/dev/null 2>&1 || true
+sudo pfctl -d 2>/dev/null || true
+echo "[revert] DONE. TV networking is back to stock."
+echo "         Kept: root SSH (ssh lgtv), telnet failsafe. Capture files kept in capture/flows/."
+echo "         To also remove root SSH: rm /var/luna/preferences/webosbrew_sshd_enabled + reboot (see docs/ACCESS.md)."

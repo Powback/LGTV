@@ -1,0 +1,98 @@
+# LG webOS 4.4.3 (Rockhopper 4.4.3-20) eMMC image — deduplicated network endpoints
+# Source image: /Users/macback/Projects/LGTV/dump/mmcblk0.img
+# Extracted from: rootfs squashfs (slot A), overlay squashfs, recovered cmn_data
+# Method: strings/grep over all ELF binaries + text/JSON configs; SDP master config parsed.
+# NOTE: The active ACR SDP endpoint is stored at runtime in /mnt/lg/cmn_data/acr/data/sdp_server
+#       (fetched via sdp_check_acr), not hardcoded in the binary.
+
+## ============================================================
+## LG INFRASTRUCTURE (core cloud / SDP "Smart Data Platform")
+## Master map: /usr/palm/sdx/server_addr_version.conf
+## ============================================================
+lgtvsdp.com                     # SDP root: sdp, sdp_secure, sdp_devauth, sdp_terms, sdp_check_acr, sdp_detect_country, sdp_oss, appstore, sns, iap
+gb.lgtvsdp.com
+smartshare.lgtvsdp.com          # SmartShare / DLNA
+rdx2.lgtvsdp.com                # rdxd/uploadd remote diagnostics upload (service "rdx"/"rdx_secure")
+ibs.lgappstv.com                # app store backend (IBIS)
+ibsstat.lgappstv.com            # app store STATISTICS (usage telemetry)
+lgrecommends.lgappstv.com       # app recommendations
+www.lgappstv.com / lgappstv.com
+snu.lge.com                     # SOFTWARE UPDATE server  (contacted over plaintext http:// in /usr/sbin/update)
+su-dev.lge.com                  # SOFTWARE UPDATE *DEV* server (hardcoded in production /usr/sbin/update)
+ngfts.lge.com / kic-ngfts.lge.com / qt2-ngfts.lge.com / aic-qt2-ngfts.lge.com / eic-qt2-ngfts.lge.com   # firmware/content file transfer
+lgtvonline.lge.com
+rs.lge.com / hlm.lge.com / wall.lge.com / harmony.lge.com / collab.lge.com / rone-*.lge.com
+dlnadevicename.lge.com
+opensource.lge.com
+www.lg.com / nwww.lg.com / koreawww.lg.com
+redirect.lgsmartplatform.com
+
+## ---- LG telemetry / recommendation / "CDP" beacon stack (lgtvcommon.com) ----
+cdpbeacon.lgtvcommon.com        # CDP tracking BEACON
+cdpsvc.lgtvcommon.com           # CDP service
+cpv.lgtvcommon.com              # content-play-view / view reporting
+nudge.lgtvcommon.com            # behavioral "nudge" push
+recommend.lgtvcommon.com        # content recommendation
+wau.lgtvcommon.com              # weekly-active-user / usage analytics
+service.lgtvcommon.com
+homeprv.lgtvcommon.com          # home-dashboard preview (auto-content)
+netflixvoice.lgtvcommon.com     # netflix voice
+qt2-kic.service.lgtvcommon.com
+
+## ---- LG advertising ----
+info.lgsmartad.com              # LG Smart Ad server (referenced by /usr/sbin/admanager)
+
+## ---- LG ThinQ AI / voice (NLP -> ASR cloud), per region ----
+he-us-ai.lgthinq.com
+he-eu-ai.lgthinq.com
+he-kr-ai.lgthinq.com  / he-kr-qa-ai.lgthinq.com
+he-ru-ai.lgthinq.com  / he-ru-qa-ai.lgthinq.com
+common.lgthinq.com
+
+## ---- LG IoT / ThinQ device control + push ----
+api.lgtviot.com                 # IoT control (service "iot")
+push.lgtviot.com                # push notifications
+sports.lgtviot.com              # sports alerts
+
+## ============================================================
+## ACR / AD / ANALYTICS THIRD-PARTY VENDORS  (the concerning ones)
+## ============================================================
+eulacheck.alphonso.tv           # ALPHONSO ACR - consent/EULA check   (lib: /usr/lib/libalphonsosolution.so.1.0.0, /usr/lib/libas.so.3.0.94; daemon /usr/sbin/acr2)
+prov-lg.alphonso.tv             # ALPHONSO ACR - device provisioning
+cid.samba.tv                    # SAMBA TV ACR/tracking                (lib: /usr/lib/libcid.so.3.9.1; daemon /usr/sbin/acr2)
+fsui.cid.samba.tv               # SAMBA TV
+ad.doubleclick.net / g.doubleclick.net / fls.doubleclick.net / doubleclick.net   # Google ads (browser engine libcbe.so + browser app)
+c.googlesyndication.com / googlesyndication.com
+scorecardresearch.com          # comScore analytics
+get.adobe.com / www.adobe.com / ns.adobe.com   # Adobe (browser/flash-era refs)
+
+## ============================================================
+## HARDCODED IP ADDRESSES (bypass DNS)
+## ============================================================
+156.147.69.32                   # LG-owned; /usr/sbin/update over plaintext http://, port 8080. Paths:
+                                #   http://156.147.69.32:8080/CheckSWAutoUpdate.laf
+                                #   http://156.147.69.32:8080/CheckSWManualUpdate.laf
+                                #   http://156.147.69.32:8080/DownloadResult.laf
+                                #   http://156.147.69.32:8080/SWDownloadStartLog.laf
+                                #   http://156.147.69.32:8080/SWDownloadEndLog.laf
+165.244.62.249                  # LG-owned (Korea range); hardcoded http:// ports 6120 / 6230 / 6240
+
+## ---- OBSERVED contacted (Pi-hole DNS history) — regionalized subdomains actually seen ----
+prov-lg.alphonso.tv             # 2326 queries (top host overall)
+eu-acr110.alphonso.tv           # 329
+eu-bl-server.alphonso.tv        # 83
+eu-clockskew.alphonso.tv        # 28
+ch.lgtvsdp.com                  # 210 (regional SDP)
+ch.rdx2.lgtvsdp.com             # 148 (diagnostics upload)
+eic.cdpsvc.lgtvcommon.com       # 68
+ch.info.lgsmartad.com           # 33 (ad server)
+eic.cdpbeacon.lgtvcommon.com    # 24 (tracking beacon)
+eic.service.lgtvcommon.com      # 20
+eic-ngfts.lge.com               # 35
+
+## ============================================================
+## NOTES
+## - Cloud/CDN hosts (amazonaws, cloudfront, akamai, gstatic, etc.) and 3rd-party app
+##   hosts (netflix/youtube/spotify/hbo/dazn/etc. from ~150 preloaded apps in the
+##   overlay partition) were also present; full raw host list: /private/tmp/lgtv-dump/hosts_all.txt
+## - browser app ships /share/spoof_urls_list.json (UA-spoofing list) referencing many sites.

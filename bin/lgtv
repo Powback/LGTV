@@ -1,0 +1,83 @@
+#!/bin/bash
+# lgtv — control surface for the rooted LG webOS TV. Drives it over root SSH + luna.
+# Built for an agent to call from a shell. Concise output, meaningful exit codes.
+#
+#   lgtv apps                       list launchable app aliases
+#   lgtv launch <alias|id>          launch an app (netflix|youtube|jellyfin|disney|...)
+#   lgtv close  <alias|id>          close an app
+#   lgtv fg                         foreground app id
+#   lgtv vol <up|down|N|mute|unmute|get>
+#   lgtv brightness <0-100>         set backlight
+#   lgtv key <name> [count]         inject remote key (up/down/left/right/enter/back/home/play/pause/...)
+#   lgtv screenshot [outfile.png]   capture screen -> pull to Mac, print local path
+#   lgtv power <get|screensaver|off>
+#   lgtv status                     power + foreground + volume
+#   lgtv luna <uri> [json]          raw luna-send escape hatch
+#   --- PowDash (app com.pow.dash) ---
+#   lgtv say "<text>"               show a message on the PowDash screen
+#   lgtv notify "<text>"            system toast OVER any app (live TV/Netflix/YouTube)
+#   lgtv dash <url> [image|iframe] [refreshMs]   show a dashboard (image auto-refreshes)
+#   lgtv idle                       return PowDash to the Zurich home dashboard
+set -uo pipefail
+TV=lgtv
+KEYHELPER=/var/lib/webosbrew/lgtv-key.py
+CAP='luna://com.webos.service.tv.capture/executeOneShot'
+POWDASH="${POWDASH_URL:-http://powdash.pow}"   # PowDash state service
+
+# push a JSON patch to the PowDash overlay
+pd(){ curl -sS -m 5 -X POST "$POWDASH/api/state" -H 'Content-Type: application/json' -d "$1" \
+  | grep -o '"mode":"[^"]*"' | head -1; }
+jstr(){ printf '%s' "$1" | python3 -c 'import json,sys;print(json.dumps(sys.stdin.read()))'; }
+
+# run a luna call; returns the raw response line (JSON payload is inside it)
+luna(){ local uri="$1" pl="${2:-}"; [ -z "$pl" ] && pl='{}'
+  ssh -o BatchMode=yes "$TV" "luna-send -n 1 -t 1 $uri '$pl'" 2>&1; }
+ok(){ grep -o '"returnValue":[a-z]*' | head -1; }
+
+app_id(){ case "$1" in
+  netflix) echo netflix;; youtube|yt) echo youtube.leanback.v4;;
+  jellyfin) echo org.jellyfin.webos;; disney|disney+) echo com.disney.disneyplus-prod;;
+  appletv|apple) echo com.apple.appletv;; pluto|plutotv) echo com.plutotv.app;;
+  amazon|prime) echo amazon;; spotify) echo spotify-beehive;;
+  twitch) echo tv.twitch.tv.starshot.lg;; home) echo com.webos.app.home;;
+  browser|web) echo com.webos.app.browser;; *) echo "$1";; esac; }
+
+cmd="${1:-help}"; shift 2>/dev/null || true
+case "$cmd" in
+  apps) echo "netflix youtube jellyfin disney appletv pluto amazon spotify twitch home browser";;
+  launch) id=$(app_id "${1:?app}"); luna luna://com.webos.applicationManager/launch "{\"id\":\"$id\"}" | ok;;
+  close)  id=$(app_id "${1:?app}"); luna luna://com.webos.applicationManager/closeByAppId "{\"id\":\"$id\"}" | ok;;
+  fg)     luna luna://com.webos.applicationManager/getForegroundAppInfo | grep -o '"appId":"[^"]*"' | head -1;;
+  vol) case "${1:?up|down|N|mute|unmute|get}" in
+         up)     luna luna://com.webos.service.audio/volumeUp | ok;;
+         down)   luna luna://com.webos.service.audio/volumeDown | ok;;
+         mute)   luna luna://com.webos.service.audio/setMuted '{"muted":true}' | ok;;
+         unmute) luna luna://com.webos.service.audio/setMuted '{"muted":false}' | ok;;
+         get)    luna luna://com.webos.service.audio/getVolume | grep -o '"volume":[0-9]*' | head -1;;
+         *)      luna luna://com.webos.service.audio/setVolume "{\"volume\":$1}" | ok;;
+       esac;;
+  brightness) luna luna://com.webos.settingsservice/setSystemSettings "{\"category\":\"picture\",\"settings\":{\"backlight\":\"${1:?0-100}\"}}" | ok;;
+  key) ssh -o BatchMode=yes "$TV" "python2.7 $KEYHELPER '${1:?key}' '${2:-1}'";;
+  screenshot|shot)
+     out="${1:-/tmp/lgtv-shot-$(date +%s).png}"
+     ssh -o BatchMode=yes "$TV" "luna-send -n 1 -t 6 $CAP '{\"path\":\"/tmp/_cap.png\",\"method\":\"DISPLAY\",\"format\":\"PNG\",\"width\":1920,\"height\":1080}'" >/dev/null 2>&1
+     scp -o BatchMode=yes "$TV":/tmp/_cap.png "$out" >/dev/null 2>&1 && echo "$out" || { echo "screenshot failed" >&2; exit 1; };;
+  toast) pd "{\"mode\":\"message\",\"message\":$(jstr "$*"),\"ttl\":0}";;
+  power) case "${1:-get}" in
+           get) luna luna://com.webos.service.tvpower/power/getPowerState | grep -oE '"state": *"[^"]*"' | head -1;;
+           screensaver) luna luna://com.webos.service.tvpower/power/turnOnScreenSaver | ok;;
+           off) luna luna://com.webos.service.tvpower/power/powerOff '{"reason":"cli"}' | ok;;
+         esac;;
+  # ---- PowDash overlay control ----
+  # say = message inside the PowDash screen; notify = system toast OVER any app (live TV/Netflix/etc.)
+  say)    pd "{\"mode\":\"message\",\"message\":$(jstr "${*:?text}"),\"ttl\":0}";;
+  notify) ssh -o BatchMode=yes "$TV" "luna-send -n 1 -t 1 luna://com.webos.notification/enable '{}' >/dev/null 2>&1; luna-send -n 1 -t 1 luna://com.webos.notification/createToast '{\"message\":\"$*\"}'" 2>&1 | grep -o '"returnValue":[a-z]*\|toastId' | head -1;;
+  dash)   src="${1:?url}"; typ="${2:-image}"; ref="${3:-5000}"; pd "{\"mode\":\"dashboard\",\"src\":$(jstr "$src"),\"srcType\":\"$typ\",\"refresh\":$ref}";;
+  idle)   pd '{"mode":"idle","message":"","src":""}';;
+  luna) luna "${1:?uri}" "${2:-}";;
+  status)
+     echo "power: $(luna luna://com.webos.service.tvpower/power/getPowerState | grep -oE '"state": *"[^"]*"' | head -1)"
+     echo "fg:    $(luna luna://com.webos.applicationManager/getForegroundAppInfo | grep -o '"appId":"[^"]*"' | head -1)"
+     echo "vol:   $(luna luna://com.webos.service.audio/getVolume | grep -o '"volume":[0-9]*' | head -1)";;
+  help|--help|-h|*) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//';;
+esac
